@@ -64,12 +64,12 @@ func (f *SimpleFirm) CreatePrice(lastSales int) {
 		pricePressure -= 0.2
 	}
 
-	if f.Cash > 10000 {
-		pricePressure -= 0.5
+	if f.Cash > 30000 {
+		pricePressure -= 0.9
 	} else if f.Cash > 20000 {
 		pricePressure -= 0.7
-	} else if f.Cash > 30000 {
-		pricePressure -= 0.9
+	} else if f.Cash > 10000 {
+		pricePressure -= 0.5
 	}
 
 	adjRateMod := 1.0
@@ -128,12 +128,12 @@ type SimpleHousehold struct {
 
 	IncomeWages       float64
 	ConsumptionBudget float64
+	Cash              float64
 }
 
 func (h *SimpleHousehold) Step() {
-	h.Population += int(0.05 * float64(h.Population))
-	h.IncomeWages += 0.05 * h.IncomeWages
-	h.ConsumptionBudget = h.IncomeWages * 0.8
+	h.Cash += h.IncomeWages
+	h.ConsumptionBudget = h.Cash * 0.8
 }
 
 // Market for one good
@@ -188,9 +188,10 @@ func (b *BasicMarket) PrintLastMkt() {
 	fmt.Printf("  - Total Sales: %d\n", res.TotalSales)
 	fmt.Println("Firms:")
 	for k, v := range res.FirmSales {
-		fmt.Printf("  - %s (%.2f)\n", k, b.Firms[b.FirmMap[k]].Cash)
+		firm := b.Firms[b.FirmMap[k]]
+		fmt.Printf("  - %s ($%.2f, %d units)\n", k, firm.Cash, firm.Inventory)
 		fmt.Printf("    - Sales: %d\n", v)
-		fmt.Printf("    - Price: %.2f\n", b.Firms[b.FirmMap[k]].Price)
+		fmt.Printf("    - Price: %.2f\n", firm.Price)
 	}
 }
 
@@ -211,66 +212,64 @@ func (b *BasicMarket) Step() {
 		})
 
 		totalSupply += f.Inventory
-
-		slices.SortFunc(offers, func(a, b FirmOffer) int {
-			return cmp.Compare(a.PricePerUnit, b.PricePerUnit)
-		})
 	}
 
-	totalDemand := 0
-	remainingDemand := 0
-	hhDemand := 0
-	for _, h := range b.Households {
-		totalDemand += h.Population
-		hhDemand = 0
-		budget := h.ConsumptionBudget
+	slices.SortFunc(offers, func(a, b FirmOffer) int {
+		return cmp.Compare(a.PricePerUnit, b.PricePerUnit)
+	})
 
-		for _, o := range offers {
-			desired := int(budget / o.PricePerUnit)
-			// For now, consume one wheat per pop
-			if desired > h.Population {
-				hhDemand = h.Population
-				budget -= float64(h.Population) * o.PricePerUnit
-				break
-			}
-
-			hhDemand += desired
-			if hhDemand > h.Population {
-				purchased := hhDemand - h.Population
-				budget -= float64(purchased) * o.PricePerUnit
-				hhDemand = h.Population
-				break
-			}
-
-			budget -= float64(desired) * o.PricePerUnit
-		}
-
-		if budget < 0 {
-			panic(fmt.Errorf("simulation err: budget went below 0"))
-		}
-
-		remainingDemand += hhDemand
+	remainingInv := make(map[string]int)
+	for _, o := range offers {
+		remainingInv[o.FirmID] = o.Qty
 	}
 
 	sales := map[string]int{}
 	for _, o := range offers {
-		if remainingDemand <= 0 {
-			sales[o.FirmID] = 0
-			continue
+		sales[o.FirmID] = 0
+	}
+
+	totalDemand := 0
+	for i := range b.Households {
+		h := &b.Households[i]
+		totalDemand += h.Population
+		budget := h.Cash
+		toBuy := h.Population
+
+		for _, o := range offers {
+			if toBuy <= 0 || budget <= 0 {
+				break
+			}
+
+			avail := remainingInv[o.FirmID]
+			if avail <= 0 {
+				continue
+			}
+
+			canAfford := int(budget / o.PricePerUnit)
+			want := min(toBuy, canAfford, avail)
+
+			if want <= 0 {
+				continue
+			}
+
+			cost := float64(want) * o.PricePerUnit
+			budget -= cost
+			toBuy -= want
+			remainingInv[o.FirmID] -= want
+			sales[o.FirmID] += want
 		}
 
-		sold := min(o.Qty, remainingDemand)
-		sales[o.FirmID] = sold
-		remainingDemand -= sold
+		h.Cash = budget
 	}
 
 	dollarsTransacted := 0.0
 	totalSold := 0
+
 	for _, o := range offers {
 		sold := sales[o.FirmID]
 		fIndex := b.FirmMap[o.FirmID]
 		b.Firms[fIndex].Cash += float64(sold) * o.PricePerUnit
-		b.Firms[fIndex].Inventory -= sold
+		b.Firms[fIndex].Inventory = remainingInv[o.FirmID]
 
 		totalSold += sold
 		dollarsTransacted += float64(sold) * o.PricePerUnit
@@ -306,9 +305,9 @@ func (b *BasicMarket) Step() {
 		b.RegisterFirm(newFirm)
 	}
 
-	// for i := range b.Households {
-	// 	b.Households[i].Step()
-	// }
+	for i := range b.Households {
+		b.Households[i].Step()
+	}
 }
 
 func (b *BasicMarket) PrintInfo() {
@@ -342,7 +341,7 @@ func randFloat(min, max float64) float64 {
 }
 
 func main() {
-	floorPrice := 11.0
+	floorPrice := 9.0
 	product := "wheat"
 
 	bm := BasicMarket{
@@ -364,6 +363,7 @@ func main() {
 			Population:        hhPop,
 			IncomeWages:       wages,
 			ConsumptionBudget: wages * 0.8,
+			Cash:              wages,
 		}
 
 		bm.RegisterHousehold(h)
