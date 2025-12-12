@@ -19,11 +19,13 @@ type SimpleFirm struct {
 }
 
 func NewSimpleFirm(product string, floorPrice float64, idNum int) SimpleFirm {
-	startPrice := floorPrice * 1.5
+	startMultiplier := randFloat(0.8, 1.2)
+
+	startPrice := floorPrice * startMultiplier
 	variance := startPrice * 0.2
 
 	id := fmt.Sprintf("%s-%d", product, idNum)
-	opCosts := 50.0
+	opCosts := 100.0
 
 	f := SimpleFirm{
 		ID:        id,
@@ -60,14 +62,14 @@ func (f *SimpleFirm) CreatePrice(lastSales int) {
 		pricePressure += 0.05
 	}
 
-	if lastSales <= 100 {
-		pricePressure -= 0.2
+	if lastSales <= 50 {
+		pricePressure -= 0.4
 	}
 
 	if f.Cash > 30000 {
-		pricePressure -= 0.9
-	} else if f.Cash > 20000 {
 		pricePressure -= 0.7
+	} else if f.Cash > 20000 {
+		pricePressure -= 0.6
 	} else if f.Cash > 10000 {
 		pricePressure -= 0.5
 	}
@@ -78,7 +80,7 @@ func (f *SimpleFirm) CreatePrice(lastSales int) {
 	}
 
 	if f.Price <= f.BasePrice {
-		pricePressure += 0.4
+		pricePressure += 0.6
 	}
 
 	if pricePressure > 0 {
@@ -354,7 +356,7 @@ func main() {
 	}
 
 	// Setup households
-	hhs := 50
+	hhs := 100
 	hhPop := 30
 	i := 0
 	for i < hhs {
@@ -380,7 +382,7 @@ func main() {
 		i++
 	}
 
-	steps := 100
+	steps := 500
 	curStep := 0
 	for curStep < steps {
 		bm.Step()

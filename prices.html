@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wheat Prices</title>
+  <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    #chart {
+      width: 100%;
+      height: 600px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="chart"></div>
+  <script>
+    const prices = [];
+
+    const ticks = Array.from({ length: prices.length }, (_, i) => i + 1);
+
+    function movingAverage(data, window) {
+      const result = [];
+      for (let i = 0; i < data.length; i++) {
+        const start = Math.max(0, i - Math.floor(window / 2));
+        const end = Math.min(data.length, i + Math.floor(window / 2) + 1);
+        const slice = data.slice(start, end);
+        result.push(slice.reduce((a, b) => a + b, 0) / slice.length);
+      }
+      return result;
+    }
+
+    const regressionLine = movingAverage(prices, 30);
+
+    const priceTrace = {
+      x: ticks,
+      y: prices,
+      type: 'scatter',
+      mode: 'lines',
+      line: {
+        color: '#d4a574',
+        width: 1,
+        shape: 'spline',
+        smoothing: 1.3
+      }
+    };
+
+    const regressionTrace = {
+      x: ticks,
+      y: regressionLine,
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Regression',
+      line: {
+        color: '#d65249',
+        width: 2,
+        shape: 'spline',
+        smoothing: 2
+      }
+    };
+
+    const layout = {
+      title: 'Market Prices',
+      xaxis: {
+        title: 'Tick',
+        gridcolor: '#e0e0e0'
+      },
+      yaxis: {
+        title: 'Price ($)',
+        gridcolor: '#e0e0e0'
+      },
+      plot_bgcolor: '#fafafa',
+      paper_bgcolor: 'white'
+    };
+
+    Plotly.newPlot('chart', [priceTrace, regressionTrace], layout, { responsive: true });
+  </script>
+</body>
+
+</html>
