@@ -2,68 +2,96 @@
 
 ## Project Overview
 
-EconSim is an economic simulation engine in Go that models market dynamics between households and firms trading wheat. It demonstrates emergent economic behaviors (monopolistic pricing, price competition, market equilibrium) through agent-based modeling with simple behavioral rules.
+EconSim is an economic simulation engine in Go that models market dynamics between households and firms trading wheat. It demonstrates emergent economic behaviors (monopolistic pricing, price competition, market equilibrium, business cycles) through agent-based modeling with behavioral rules and a labor market.
 
 ## Tech Stack
 
 - **Go 1.21.1** - Core simulation
 - **Plotly.js** - Price visualization in HTML output
-- **YAML** - Config support via `go-yaml` (infrastructure ready, not actively used)
 
-## Key Files
+## Project Structure
 
-| File | Purpose |
-|------|---------|
-| `main.go` | All simulation logic: firms, households, market clearing |
-| `mkt.sh` | Build/run script: runs sim, extracts prices, generates HTML viz |
-| `prices.html` | Visualization template with Plotly.js charts |
-| `internal/config/config.go` | YAML config loader (expects `akGrok` key) |
-| `internal/llm/llm.go` | Grok LLM API client (infrastructure, not integrated) |
+```
+econsim/
+├── main.go                 # Entry point, simulation setup
+├── internal/
+│   └── sim/                # Core simulation package
+│       ├── types.go        # Shared types (MarketResult, FirmOffer)
+│       ├── util.go         # Helper functions (RandFloat)
+│       ├── firm.go         # Firm: production, pricing, labor demand
+│       ├── household.go    # Household: consumption, labor supply, savings
+│       ├── labor.go        # LaborMarket: wage equilibrium, employment
+│       └── market.go       # Market: orchestrates labor + goods markets
+├── mkt.sh                  # Build/run script with visualization
+├── prices.html             # Plotly.js visualization template
+└── internal/
+    ├── config/             # YAML config (unused)
+    └── llm/                # LLM integration (unused)
+```
 
 ## Running the Simulation
 
 ```bash
-./mkt.sh           # Full pipeline: run sim + generate visualization
-go run main.go     # Direct execution (outputs to stdout)
+go run main.go     # Direct execution
+./mkt.sh           # Run + generate price visualization
 ```
 
-Output goes to `simrun/` directory. Open `simrun/prices.html` for interactive price chart.
+## Core Types (internal/sim)
 
-## Core Data Structures
+### Firm (`firm.go`)
+Producer agent with:
+- **Pricing**: Dynamic floor based on wages, price stickiness (5%/tick max change)
+- **Production**: Capped by workers × productivity
+- **Labor demand**: Based on sales targets, minimum 50 workers
 
-**SimpleFirm** (lines 10-42): Agent with Cash, Price, Inventory, OpCosts, BasePrice
-- `CreatePrice()` - Adaptive pricing based on inventory, sales history, cash reserves
-- `Produce()` - Produces 1.1x of last sales (capped at 20% capacity growth)
+Key methods: `UpdatePrice()`, `Produce()`, `Step()`
 
-**SimpleHousehold** (lines 128-139): Consumer with Population, Income, ConsumptionBudget
+### Household (`household.go`)
+Consumer agent with:
+- **Demand**: Population determines goods demand
+- **Labor supply**: Workers available for employment
+- **Savings**: 20% of cash saved, 80% available for spending
 
-**BasicMarket** (lines 142-326): Orchestrates market clearing
-- Sorts firm offers by price (ascending)
-- Households buy from cheapest first (budget-constrained)
-- Removes bankrupt firms (cash <= 0)
-- Spawns new firm if sales < 66% of demand
+Key methods: `Step()`, `Spend()`
 
-**MarketResult** (lines 333-339): Records LastPrice, Supply, Demand, TotalSales
+### LaborMarket (`labor.go`)
+Equilibrium wage model:
+- Wage adjusts based on supply/demand (max 5%/tick)
+- Wage floor: $5
+- Workers allocated proportionally to firm demand
 
-## Simulation Parameters (in main.go)
+Key methods: `Clear()`, `TotalJobs()`
 
+### Market (`market.go`)
+Orchestrates the economy:
+1. Clear labor market (wages, employment)
+2. Clear goods market (prices, sales)
+3. Handle firm exit (bankruptcy, voluntary) and entry (probabilistic)
+4. Update households (income)
+
+Key methods: `Step()`, `AddFirm()`, `AddHousehold()`
+
+## Simulation Parameters
+
+Configured in `main.go`:
 - 100 households, 5 initial firms
-- 500 simulation ticks
-- Household income: 10-20 (random), 80% budget for consumption
-- Firm operating cost: 10/tick
-- Base price floor: 1.0
+- 500 ticks
+- Materials cost: $1/unit
+- Initial wage: $10/worker
+- Savings buffer: 10x income
 
 ## Economic Mechanics
 
-1. **Pricing**: Inventory pressure (high inv → lower price), sales history (high sales → raise price), cash reserves (rich firms lower price for market share), floor price protection
-2. **Production**: Target 1.1x last sales, max 20% growth per tick
-3. **Market Entry**: New firm enters when market is undersupplied (sales < 66% demand)
-4. **Exit**: Firms with cash <= 0 are removed
+### Circular Flow
+Firms pay wages → Households earn income → Households buy goods → Firms earn revenue
 
-## Code Patterns
+### Stabilizers
+- **Savings**: Households save 20%, buffer against income shocks
+- **Minimum workforce**: Firms maintain 50+ workers
+- **Dynamic price floor**: Tracks wages to prevent below-cost sales
+- **Wage floor**: $5 minimum prevents wage collapse
 
-- Agent-based modeling with simple behavioral rules
-- Factory pattern: `NewSimpleFirm()`
-- Pointer receivers for state modification
-- Maps for O(1) firm lookup by ID
-- Monolithic main.go (educational simplicity)
+### Known Dynamics
+- Business cycles emerge from feedback loops
+- Can get stuck in low-employment equilibrium
+- High wages can trigger profit squeeze and recessions
