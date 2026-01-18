@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Run simulation
-	steps := 500
+	steps := 1000
 	for step := 0; step < steps; step++ {
 		market.Step()
 		fmt.Println()

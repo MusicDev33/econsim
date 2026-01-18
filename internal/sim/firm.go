@@ -20,9 +20,14 @@ type Firm struct {
 	PrevCash        float64
 
 	// Labor
-	Workers           int     // current employees
+	Workers           int     // active/productive employees
 	TargetWorkers     int     // desired employees
 	LaborProductivity float64 // units produced per worker per tick
+
+	// Hiring
+	HiringCost    float64 // flat fee per new hire
+	TrainingTicks int     // ticks before new hire becomes productive
+	HiringQueue   []int   // workers in training; HiringQueue[i] = graduates in i+1 ticks
 }
 
 // FirmConfig holds parameters for creating new firms
@@ -34,6 +39,8 @@ type FirmConfig struct {
 	InitialWorkers    int
 	LaborProductivity float64
 	OpCosts           float64
+	HiringCost        float64
+	TrainingTicks     int
 }
 
 // DefaultFirmConfig returns sensible defaults
@@ -46,6 +53,8 @@ func DefaultFirmConfig(product string, materialsCost, priceFloor float64) FirmCo
 		InitialWorkers:    400,
 		LaborProductivity: 1.0,
 		OpCosts:           100.0,
+		HiringCost:        5.0, // small flat fee per new hire
+		TrainingTicks:     2,   // 5 ticks to become productive
 	}
 }
 
@@ -72,7 +81,65 @@ func NewFirm(cfg FirmConfig, idNum int) *Firm {
 		Workers:           cfg.InitialWorkers,
 		TargetWorkers:     cfg.InitialWorkers,
 		LaborProductivity: cfg.LaborProductivity,
+		HiringCost:        cfg.HiringCost,
+		TrainingTicks:     cfg.TrainingTicks,
+		HiringQueue:       make([]int, cfg.TrainingTicks), // starts empty (initial workers are trained)
 	}
+}
+
+// ProcessHiring handles the hiring queue and returns total workforce for wage calculation.
+// New hires go into training queue and graduate after TrainingTicks.
+// Returns the total workforce (active + training) for wage payment purposes.
+func (f *Firm) ProcessHiring(allocated int) int {
+	// Graduate trainees from front of queue
+	if len(f.HiringQueue) > 0 {
+		graduates := f.HiringQueue[0]
+		f.Workers += graduates
+
+		// Shift queue left, add zero at end
+		f.HiringQueue = append(f.HiringQueue[1:], 0)
+	}
+
+	// Calculate current total workforce (active + in training)
+	inTraining := 0
+	for _, n := range f.HiringQueue {
+		inTraining += n
+	}
+	currentTotal := f.Workers + inTraining
+
+	if allocated > currentTotal {
+		// Hiring new workers
+		newHires := allocated - currentTotal
+		f.HiringQueue[len(f.HiringQueue)-1] = newHires
+		f.Cash -= f.HiringCost * float64(newHires)
+	} else if allocated < currentTotal {
+		// Layoffs: remove from queue first (newest hires), then active workers
+		toRemove := currentTotal - allocated
+		for i := len(f.HiringQueue) - 1; i >= 0 && toRemove > 0; i-- {
+			remove := min(f.HiringQueue[i], toRemove)
+			f.HiringQueue[i] -= remove
+			toRemove -= remove
+		}
+		if toRemove > 0 {
+			f.Workers -= toRemove
+		}
+	}
+
+	// Recalculate for return value
+	inTraining = 0
+	for _, n := range f.HiringQueue {
+		inTraining += n
+	}
+	return f.Workers + inTraining
+}
+
+// TotalWorkforce returns active workers plus those in training
+func (f *Firm) TotalWorkforce() int {
+	inTraining := 0
+	for _, n := range f.HiringQueue {
+		inTraining += n
+	}
+	return f.Workers + inTraining
 }
 
 // UpdatePrice adjusts the firm's price based on market conditions

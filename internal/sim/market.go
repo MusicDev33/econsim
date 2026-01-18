@@ -91,10 +91,12 @@ func (m *Market) Step() {
 func (m *Market) clearLaborMarket() {
 	m.Labor.Clear(m.Firms, m.Households)
 
-	// Assign workers to firms and pay wages
+	// Process hiring (with training delay) and pay wages
 	for _, f := range m.Firms {
-		f.Workers = m.Labor.Employment[f.ID]
-		wageCost := float64(f.Workers) * m.Labor.WageRate
+		allocated := m.Labor.Employment[f.ID]
+		totalWorkforce := f.ProcessHiring(allocated)
+		// Pay wages for all workers (active + training)
+		wageCost := float64(totalWorkforce) * m.Labor.WageRate
 		f.Cash -= wageCost
 	}
 
