@@ -9,7 +9,9 @@ import (
 )
 
 type Config struct {
-	AkGrok string `yaml:"akGrok"`
+	AkGrok   string `yaml:"akGrok"`
+	AkOpenAI string `yaml:"akOpenAI"`
+	AkClaude string `yaml:"akClaude"`
 }
 
 var (
@@ -39,8 +41,8 @@ func loadConfig(filename string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if config.AkGrok == "" {
-		return nil, fmt.Errorf("akGrok must be set in config")
+	if config.AkGrok == "" && config.AkOpenAI == "" && config.AkClaude == "" {
+		return nil, fmt.Errorf("at least one API key must be set in config (akGrok, akOpenAI, or akClaude)")
 	}
 
 	return &config, nil
