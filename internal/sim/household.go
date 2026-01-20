@@ -1,7 +1,5 @@
 package sim
 
-const savingsRate = 0.2 // households save 20% of cash
-
 // Household represents a consumer unit in the economy
 type Household struct {
 	Population int // total members (determines demand for goods)
@@ -10,6 +8,7 @@ type Household struct {
 	Employed          int     // currently employed workers
 	Cash              float64 // total savings
 	ConsumptionBudget float64 // amount willing to spend this tick
+	SavingsRate       float64 // fraction of cash to save each tick
 }
 
 // HouseholdConfig holds parameters for creating households
@@ -17,6 +16,7 @@ type HouseholdConfig struct {
 	Population  int
 	Workers     int
 	InitialCash float64
+	SavingsRate float64
 }
 
 // NewHousehold creates a new household
@@ -26,7 +26,8 @@ func NewHousehold(cfg HouseholdConfig) *Household {
 		Workers:           cfg.Workers,
 		Employed:          cfg.Workers, // start fully employed
 		Cash:              cfg.InitialCash,
-		ConsumptionBudget: cfg.InitialCash * (1 - savingsRate),
+		ConsumptionBudget: cfg.InitialCash * (1 - cfg.SavingsRate),
+		SavingsRate:       cfg.SavingsRate,
 	}
 }
 
@@ -34,7 +35,7 @@ func NewHousehold(cfg HouseholdConfig) *Household {
 func (h *Household) Step(wageRate float64) {
 	income := float64(h.Employed) * wageRate
 	h.Cash += income
-	h.ConsumptionBudget = h.Cash * (1 - savingsRate)
+	h.ConsumptionBudget = h.Cash * (1 - h.SavingsRate)
 }
 
 // Spend deducts the given amount from cash

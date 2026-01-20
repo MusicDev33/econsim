@@ -11,3 +11,9 @@ numHouseholds: 100            # Number of households in the economy
 popPerHousehold: 30           # Population (consumers) per household
 numStartingFirms: 5           # Number of firms at simulation start
 numTicks: 500                 # How many ticks to run the simulation
+
+# Economic Parameters
+initialWage: 10.0             # Starting wage rate
+wageFloor: 5.0                # Minimum wage (prevents deflationary spiral)
+maxWageChange: 0.05           # Max wage adjustment per tick (5% = 0.05)
+savingsRate: 0.2              # Fraction of cash households save (20% = 0.2)

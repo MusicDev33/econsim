@@ -15,11 +15,17 @@ type Config struct {
 	AkClaude string `yaml:"akClaude"`
 
 	// Simulation parameters
-	EventFile        string `yaml:"eventFile"`
-	NumHouseholds    int    `yaml:"numHouseholds"`
-	PopPerHousehold  int    `yaml:"popPerHousehold"`
-	NumStartingFirms int    `yaml:"numStartingFirms"`
-	NumTicks         int    `yaml:"numTicks"`
+	EventFile        string  `yaml:"eventFile"`
+	NumHouseholds    int     `yaml:"numHouseholds"`
+	PopPerHousehold  int     `yaml:"popPerHousehold"`
+	NumStartingFirms int     `yaml:"numStartingFirms"`
+	NumTicks         int     `yaml:"numTicks"`
+
+	// Economic parameters
+	InitialWage   float64 `yaml:"initialWage"`
+	WageFloor     float64 `yaml:"wageFloor"`
+	MaxWageChange float64 `yaml:"maxWageChange"`
+	SavingsRate   float64 `yaml:"savingsRate"`
 }
 
 var (
@@ -64,6 +70,18 @@ func loadConfig(filename string) (*Config, error) {
 	}
 	if config.NumTicks == 0 {
 		config.NumTicks = 500
+	}
+	if config.InitialWage == 0 {
+		config.InitialWage = 10.0
+	}
+	if config.WageFloor == 0 {
+		config.WageFloor = 5.0
+	}
+	if config.MaxWageChange == 0 {
+		config.MaxWageChange = 0.05
+	}
+	if config.SavingsRate == 0 {
+		config.SavingsRate = 0.2
 	}
 
 	return &config, nil

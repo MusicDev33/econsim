@@ -19,13 +19,14 @@ func main() {
 
 	// Economic parameters
 	materialsCost := 1.0
-	initialWage := 10.0
 
 	// Create market
 	market := sim.NewMarket(sim.MarketConfig{
 		Product:       "wheat",
 		MaterialsCost: materialsCost,
-		InitialWage:   initialWage,
+		InitialWage:   cfg.InitialWage,
+		WageFloor:     cfg.WageFloor,
+		MaxWageChange: cfg.MaxWageChange,
 	})
 	market.Events = events
 
@@ -34,11 +35,12 @@ func main() {
 	savingsBuffer := 10.0                         // periods of income as initial savings
 
 	for i := 0; i < cfg.NumHouseholds; i++ {
-		initialCash := float64(workersPerHH) * initialWage * savingsBuffer
+		initialCash := float64(workersPerHH) * cfg.InitialWage * savingsBuffer
 		h := sim.NewHousehold(sim.HouseholdConfig{
 			Population:  cfg.PopPerHousehold,
 			Workers:     workersPerHH,
 			InitialCash: initialCash,
+			SavingsRate: cfg.SavingsRate,
 		})
 		market.AddHousehold(h)
 	}

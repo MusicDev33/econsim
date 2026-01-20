@@ -1,23 +1,22 @@
 package sim
 
-const (
-	maxWageChange = 0.05 // wages adjust max 5% per tick
-	wageFloor     = 5.0  // minimum wage
-)
-
 // LaborMarket matches workers with firms
 type LaborMarket struct {
 	WageRate         float64        // equilibrium wage
+	WageFloor        float64        // minimum wage
+	MaxWageChange    float64        // max percentage change per tick
 	TotalLaborSupply int            // sum of household workers
 	TotalLaborDemand int            // sum of firm labor needs
 	Employment       map[string]int // firmID -> workers allocated
 }
 
-// NewLaborMarket creates a labor market with the given initial wage
-func NewLaborMarket(initialWage float64) *LaborMarket {
+// NewLaborMarket creates a labor market with the given parameters
+func NewLaborMarket(initialWage, wageFloor, maxWageChange float64) *LaborMarket {
 	return &LaborMarket{
-		WageRate:   initialWage,
-		Employment: make(map[string]int),
+		WageRate:      initialWage,
+		WageFloor:     wageFloor,
+		MaxWageChange: maxWageChange,
+		Employment:    make(map[string]int),
 	}
 }
 
@@ -44,17 +43,17 @@ func (lm *LaborMarket) adjustWage() {
 	if lm.TotalLaborDemand > lm.TotalLaborSupply {
 		// Labor shortage: wages rise
 		shortage := float64(lm.TotalLaborDemand-lm.TotalLaborSupply) / float64(lm.TotalLaborSupply+1)
-		increase := min(shortage*0.1, maxWageChange)
+		increase := min(shortage*0.1, lm.MaxWageChange)
 		lm.WageRate *= 1.0 + increase
 	} else if lm.TotalLaborDemand < lm.TotalLaborSupply {
 		// Labor surplus: wages fall
 		surplus := float64(lm.TotalLaborSupply-lm.TotalLaborDemand) / float64(lm.TotalLaborSupply+1)
-		decrease := min(surplus*0.1, maxWageChange)
+		decrease := min(surplus*0.1, lm.MaxWageChange)
 		lm.WageRate *= 1.0 - decrease
 	}
 
-	if lm.WageRate < wageFloor {
-		lm.WageRate = wageFloor
+	if lm.WageRate < lm.WageFloor {
+		lm.WageRate = lm.WageFloor
 	}
 }
 

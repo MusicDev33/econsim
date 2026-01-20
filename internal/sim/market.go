@@ -30,6 +30,8 @@ type MarketConfig struct {
 	Product       string
 	MaterialsCost float64
 	InitialWage   float64
+	WageFloor     float64
+	MaxWageChange float64
 }
 
 // NewMarket creates a new market
@@ -44,7 +46,7 @@ func NewMarket(cfg MarketConfig) *Market {
 		Households:    []*Household{},
 		MaterialsCost: cfg.MaterialsCost,
 		PriceFloor:    priceFloor,
-		Labor:         NewLaborMarket(cfg.InitialWage),
+		Labor:         NewLaborMarket(cfg.InitialWage, cfg.WageFloor, cfg.MaxWageChange),
 		firmConfig:    DefaultFirmConfig(cfg.Product, cfg.MaterialsCost, priceFloor),
 	}
 }
