@@ -1,12 +1,22 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
+	"MusicDev33/econsim/internal/config"
 	"MusicDev33/econsim/internal/sim"
 )
 
 func main() {
+	cfg := config.Get()
+
+	// Setup event emitter
+	events, err := sim.NewEventEmitter(cfg.EventFile)
+	if err != nil {
+		log.Fatalf("Failed to create event emitter: %v", err)
+	}
+	defer events.Close()
+
 	// Economic parameters
 	materialsCost := 1.0
 	initialWage := 10.0
@@ -17,17 +27,16 @@ func main() {
 		MaterialsCost: materialsCost,
 		InitialWage:   initialWage,
 	})
+	market.Events = events
 
 	// Setup households
-	numHouseholds := 100
-	population := 30      // members per household (demand)
-	workersPerHH := 20    // working-age members (labor supply)
-	savingsBuffer := 10.0 // periods of income as initial savings
+	workersPerHH := (cfg.PopPerHousehold * 2) / 3 // ~2/3 of population are workers
+	savingsBuffer := 10.0                         // periods of income as initial savings
 
-	for i := 0; i < numHouseholds; i++ {
+	for i := 0; i < cfg.NumHouseholds; i++ {
 		initialCash := float64(workersPerHH) * initialWage * savingsBuffer
 		h := sim.NewHousehold(sim.HouseholdConfig{
-			Population:  population,
+			Population:  cfg.PopPerHousehold,
 			Workers:     workersPerHH,
 			InitialCash: initialCash,
 		})
@@ -35,15 +44,12 @@ func main() {
 	}
 
 	// Setup initial firms
-	numFirms := 5
-	for i := 0; i < numFirms; i++ {
+	for i := 0; i < cfg.NumStartingFirms; i++ {
 		market.CreateFirm()
 	}
 
 	// Run simulation
-	steps := 1000
-	for step := 0; step < steps; step++ {
+	for step := 0; step < cfg.NumTicks; step++ {
 		market.Step()
-		fmt.Println()
 	}
 }

@@ -9,9 +9,17 @@ import (
 )
 
 type Config struct {
+	// LLM API keys
 	AkGrok   string `yaml:"akGrok"`
 	AkOpenAI string `yaml:"akOpenAI"`
 	AkClaude string `yaml:"akClaude"`
+
+	// Simulation parameters
+	EventFile        string `yaml:"eventFile"`
+	NumHouseholds    int    `yaml:"numHouseholds"`
+	PopPerHousehold  int    `yaml:"popPerHousehold"`
+	NumStartingFirms int    `yaml:"numStartingFirms"`
+	NumTicks         int    `yaml:"numTicks"`
 }
 
 var (
@@ -41,8 +49,21 @@ func loadConfig(filename string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if config.AkGrok == "" && config.AkOpenAI == "" && config.AkClaude == "" {
-		return nil, fmt.Errorf("at least one API key must be set in config (akGrok, akOpenAI, or akClaude)")
+	// Apply defaults for simulation parameters
+	if config.EventFile == "" {
+		config.EventFile = "simrun/events.ndjson"
+	}
+	if config.NumHouseholds == 0 {
+		config.NumHouseholds = 100
+	}
+	if config.PopPerHousehold == 0 {
+		config.PopPerHousehold = 30
+	}
+	if config.NumStartingFirms == 0 {
+		config.NumStartingFirms = 5
+	}
+	if config.NumTicks == 0 {
+		config.NumTicks = 500
 	}
 
 	return &config, nil

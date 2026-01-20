@@ -1,0 +1,13 @@
+# EconSim Configuration
+
+# LLM API Keys (optional - only needed if using LLM features)
+akGrok: ""
+akOpenAI: ""
+akClaude: ""
+
+# Simulation Parameters
+eventFile: "simrun/events.ndjson"  # Output file for simulation events (truncated each run)
+numHouseholds: 100            # Number of households in the economy
+popPerHousehold: 30           # Population (consumers) per household
+numStartingFirms: 5           # Number of firms at simulation start
+numTicks: 500                 # How many ticks to run the simulation

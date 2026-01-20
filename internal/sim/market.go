@@ -2,7 +2,6 @@ package sim
 
 import (
 	"cmp"
-	"fmt"
 	"math/rand"
 	"slices"
 )
@@ -20,6 +19,10 @@ type Market struct {
 
 	totalHistoricFirms int
 	firmConfig         FirmConfig
+
+	// Event tracking
+	Tick   int
+	Events *EventEmitter
 }
 
 // MarketConfig holds parameters for creating a market
@@ -43,6 +46,13 @@ func NewMarket(cfg MarketConfig) *Market {
 		PriceFloor:    priceFloor,
 		Labor:         NewLaborMarket(cfg.InitialWage),
 		firmConfig:    DefaultFirmConfig(cfg.Product, cfg.MaterialsCost, priceFloor),
+	}
+}
+
+// emit sends an event if the emitter is configured
+func (m *Market) emit(name string, data any) {
+	if m.Events != nil {
+		m.Events.Emit(m.Tick, name, data)
 	}
 }
 
@@ -82,6 +92,7 @@ func (m *Market) CreateFirm() *Firm {
 
 // Step advances the simulation by one tick
 func (m *Market) Step() {
+	m.Tick++
 	m.clearLaborMarket()
 	m.clearGoodsMarket()
 	m.handleFirmExitAndEntry()
@@ -103,8 +114,12 @@ func (m *Market) clearLaborMarket() {
 	// Distribute employment to households
 	m.distributeEmployment()
 
-	fmt.Printf("Labor: wage=%.2f, demand=%d, supply=%d, employed=%d\n",
-		m.Labor.WageRate, m.Labor.TotalLaborDemand, m.Labor.TotalLaborSupply, m.Labor.TotalJobs())
+	m.emit("labor_market_cleared", map[string]any{
+		"wage":     m.Labor.WageRate,
+		"demand":   m.Labor.TotalLaborDemand,
+		"supply":   m.Labor.TotalLaborSupply,
+		"employed": m.Labor.TotalJobs(),
+	})
 }
 
 func (m *Market) distributeEmployment() {
@@ -249,21 +264,31 @@ func (m *Market) recordMarketResult(offers []FirmOffer, sales map[string]int, to
 		AvgProfitMargin: profitMargin,
 	}
 
-	m.printMarketStatus()
+	m.emitMarketStatus()
 }
 
-func (m *Market) printMarketStatus() {
+func (m *Market) emitMarketStatus() {
 	res := m.PrevResult
-	fmt.Printf("Market Price for %s: %.2f\n", m.Product, res.LastPrice)
-	fmt.Printf("  - Demand: %d\n", res.Demand)
-	fmt.Printf("  - Supply: %d\n", res.Supply)
-	fmt.Printf("  - Total Sales: %d\n", res.TotalSales)
-	fmt.Println("Firms:")
+
+	m.emit("market_cleared", map[string]any{
+		"product":     m.Product,
+		"price":       res.LastPrice,
+		"demand":      res.Demand,
+		"supply":      res.Supply,
+		"total_sales": res.TotalSales,
+	})
+
 	for id, sales := range res.FirmSales {
 		f := m.Firms[m.firmIndex[id]]
-		fmt.Printf("  - %s ($%.2f, %d units)\n", id, f.Cash, f.Inventory)
-		fmt.Printf("    - Sales: %d\n", sales)
-		fmt.Printf("    - Price: %.2f\n", f.Price)
+		m.emit("firm_status", map[string]interface{}{
+			"firm_id":   id,
+			"cash":      f.Cash,
+			"inventory": f.Inventory,
+			"sales":     sales,
+			"price":     f.Price,
+			"workers":   f.Workers,
+			"training":  f.TotalWorkforce() - f.Workers,
+		})
 	}
 }
 
@@ -284,10 +309,16 @@ func (m *Market) handleExits() {
 	for _, f := range m.Firms {
 		if f.IsBankrupt() {
 			toRemove = append(toRemove, f.ID)
-			fmt.Printf("  [EXIT] %s: bankruptcy\n", f.ID)
+			m.emit("firm_exit", map[string]interface{}{
+				"firm_id": f.ID,
+				"reason":  "bankruptcy",
+			})
 		} else if f.WantsToExit() {
 			toRemove = append(toRemove, f.ID)
-			fmt.Printf("  [EXIT] %s: voluntary (sustained losses)\n", f.ID)
+			m.emit("firm_exit", map[string]interface{}{
+				"firm_id": f.ID,
+				"reason":  "voluntary",
+			})
 		}
 	}
 
@@ -318,8 +349,11 @@ func (m *Market) handleEntry() {
 
 	if rand.Float64() < entryProb {
 		newFirm := m.CreateFirm()
-		fmt.Printf("  [ENTRY] %s: new firm entered (margin=%.2f, satisfaction=%.2f)\n",
-			newFirm.ID, margin, satisfaction)
+		m.emit("firm_entry", map[string]interface{}{
+			"firm_id":      newFirm.ID,
+			"margin":       margin,
+			"satisfaction": satisfaction,
+		})
 	}
 }
 
